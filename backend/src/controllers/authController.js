@@ -1,0 +1,461 @@
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
+const nodemailer = require('nodemailer');
+const env = require('../config/env');
+const { db } = require('../database/db');
+
+const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
+
+const generateToken = (user) => {
+  return jwt.sign(
+    { id: user.id, email: user.email, role: user.role },
+    env.JWT_SECRET,
+    { expiresIn: env.JWT_EXPIRES_IN }
+  );
+};
+
+// Helper to send real OTP email via SMTP if credentials are configured
+const sendOtpEmail = async (email, otp) => {
+  if (!env.SMTP.user || !env.SMTP.pass) {
+    return { sent: false, reason: 'SMTP credentials not configured in .env' };
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: env.SMTP.host,
+      port: env.SMTP.port,
+      secure: env.SMTP.secure,
+      auth: {
+        user: env.SMTP.user,
+        pass: env.SMTP.pass
+      }
+    });
+
+    const mailOptions = {
+      from: env.SMTP.from,
+      to: email,
+      subject: `Your SolWash Login Verification Code: ${otp}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+          <h2 style="color: #0f172a; margin-top: 0; font-size: 22px;">Welcome to SolWash Solar Care</h2>
+          <p style="color: #475569; font-size: 14px; line-height: 1.5;">Your one-time verification code for sign-in is:</p>
+          <div style="margin: 24px 0; padding: 16px; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px; text-align: center;">
+            <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #1e3a8a; font-family: monospace;">${otp}</span>
+          </div>
+          <p style="color: #64748b; font-size: 13px; line-height: 1.5;">This code will expire in <strong>10 minutes</strong>. If you did not request this login, please ignore this email.</p>
+          <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 20px 0;">
+          <p style="color: #94a3b8; font-size: 11px; margin: 0;">SolWash Solar Care Services &bull; Eco-Friendly Solar Rooftop Care</p>
+        </div>
+      `
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✉️ [SOLWASH EMAIL] Real OTP email sent to ${email}: Message ID ${info.messageId}`);
+    return { sent: true, messageId: info.messageId };
+  } catch (err) {
+    console.warn(`⚠️ [SOLWASH EMAIL] SMTP sending failed for ${email}:`, err.message);
+    return { sent: false, error: err.message };
+  }
+};
+
+// 1. Send OTP to Email
+exports.sendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid email address is required.'
+      });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Generate 4-digit OTP (e.g. 1000 - 9999)
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
+
+    // Delete existing OTPs for this email
+    await db.runAsync('DELETE FROM otps WHERE email = ?', [cleanEmail]);
+
+    // Insert new OTP
+    await db.runAsync(
+      'INSERT INTO otps (email, otp, expires_at) VALUES (?, ?, ?)',
+      [cleanEmail, otp, expiresAt]
+    );
+
+    console.log(`\n========================================`);
+    console.log(`🔑 [SOLWASH OTP] Generated for: ${cleanEmail}`);
+    console.log(`🔐 OTP Code: ${otp}`);
+    console.log(`========================================\n`);
+
+    // Attempt sending real email via SMTP if configured
+    const emailResult = await sendOtpEmail(cleanEmail, otp);
+
+    return res.json({
+      success: true,
+      message: emailResult.sent
+        ? `Verification code sent to ${cleanEmail}. Check your inbox!`
+        : `OTP generated for ${cleanEmail}.`,
+      email_sent: emailResult.sent,
+      // Only expose in payload if email failed to send in development mode
+      otp: emailResult.sent ? undefined : (env.NODE_ENV === 'development' ? otp : undefined)
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to send OTP.',
+      error: error.message
+    });
+  }
+};
+
+// 2. Verify OTP & Auto-Register / Login Customer
+exports.verifyOtp = async (req, res) => {
+  try {
+    const { email, otp, name } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and OTP are required.'
+      });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Fetch valid OTP
+    const storedOtp = await db.getAsync(
+      'SELECT * FROM otps WHERE email = ? AND otp = ?',
+      [cleanEmail, otp.trim()]
+    );
+
+    if (!storedOtp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OTP code. Please check and try again.'
+      });
+    }
+
+    if (Date.now() > storedOtp.expires_at) {
+      await db.runAsync('DELETE FROM otps WHERE id = ?', [storedOtp.id]);
+      return res.status(400).json({
+        success: false,
+        message: 'OTP has expired. Please request a new one.'
+      });
+    }
+
+    // OTP is valid - remove used OTP
+    await db.runAsync('DELETE FROM otps WHERE id = ?', [storedOtp.id]);
+
+    // Check if user exists
+    let user = await db.getAsync('SELECT * FROM users WHERE email = ?', [cleanEmail]);
+
+    if (!user) {
+      // Auto-register new customer
+      const defaultName = name && name.trim() ? name.trim() : cleanEmail.split('@')[0];
+      const randomPassword = Math.random().toString(36).slice(-8);
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+      const result = await db.runAsync(
+        `INSERT INTO users (name, email, phone, password, role, address)
+         VALUES (?, ?, null, ?, 'customer', null)`,
+        [defaultName, cleanEmail, hashedPassword]
+      );
+
+      user = await db.getAsync('SELECT * FROM users WHERE id = ?', [result.lastID]);
+    }
+
+    const token = generateToken(user);
+    delete user.password;
+
+    return res.json({
+      success: true,
+      message: 'Login successful via OTP!',
+      data: {
+        user,
+        token
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to verify OTP.',
+      error: error.message
+    });
+  }
+};
+
+// 3. Direct Login (Phone 1-click only, Google requires OAuth verification)
+exports.directLogin = async (req, res) => {
+  try {
+    const { provider, email, phone, name } = req.body;
+
+    if (provider === 'google') {
+      return res.status(403).json({
+        success: false,
+        message: 'Google login requires valid Google OAuth authentication token.'
+      });
+    }
+
+    const identifier = phone ? `${phone}@phone.solwash.com` : (email ? email.toLowerCase().trim() : `guest_${Date.now()}@solwash.com`);
+    let user = await db.getAsync('SELECT * FROM users WHERE email = ?', [identifier]);
+
+    if (!user) {
+      const defaultName = name || (phone ? `User ${phone.slice(-4)}` : 'Customer');
+      const randomPass = Math.random().toString(36).slice(-8);
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(randomPass, salt);
+
+      const result = await db.runAsync(
+        `INSERT INTO users (name, email, phone, password, role, address)
+         VALUES (?, ?, ?, ?, 'customer', null)`,
+        [defaultName, identifier, phone || null, hashedPassword]
+      );
+
+      user = await db.getAsync('SELECT * FROM users WHERE id = ?', [result.lastID]);
+    }
+
+    const token = generateToken(user);
+    delete user.password;
+
+    return res.json({
+      success: true,
+      message: `Signed in directly with ${provider || 'account'}!`,
+      data: {
+        user,
+        token
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Direct login failed.',
+      error: error.message
+    });
+  }
+};
+
+// 4. Official Google OAuth Token Verification & Login
+exports.googleLogin = async (req, res) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({
+        success: false,
+        message: 'Google credential ID token is required.'
+      });
+    }
+
+    // Verify token with Google's API
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: env.GOOGLE_CLIENT_ID
+      });
+      payload = ticket.getPayload();
+    } catch (verifyError) {
+      console.error('Google token verification error:', verifyError.message);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid Google token. Verification failed with Google servers.',
+        error: verifyError.message
+      });
+    }
+
+    const { email, name, picture, sub: googleId } = payload;
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Check if user exists in database
+    let user = await db.getAsync('SELECT * FROM users WHERE email = ?', [cleanEmail]);
+
+    if (!user) {
+      // Auto-register new customer via Google OAuth
+      const randomPassword = Math.random().toString(36).slice(-10);
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+      const result = await db.runAsync(
+        `INSERT INTO users (name, email, phone, password, role, address)
+         VALUES (?, ?, null, ?, 'customer', null)`,
+        [name || cleanEmail.split('@')[0], cleanEmail, hashedPassword]
+      );
+
+      user = await db.getAsync('SELECT * FROM users WHERE id = ?', [result.lastID]);
+    }
+
+    const token = generateToken(user);
+    delete user.password;
+
+    console.log(`Google user authenticated: ${user.email} (${user.name})`);
+
+    return res.json({
+      success: true,
+      message: `Signed in with Google as ${user.name}!`,
+      data: {
+        user,
+        token
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Google authentication failed.',
+      error: error.message
+    });
+  }
+};
+
+
+
+// Register Customer
+exports.register = async (req, res) => {
+  try {
+    const { name, email, phone, password, address } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, email and password are required fields.'
+      });
+    }
+
+    const existingUser = await db.getAsync('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]);
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'A user with this email already exists.'
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const result = await db.runAsync(
+      `INSERT INTO users (name, email, phone, password, role, address)
+       VALUES (?, ?, ?, ?, 'customer', ?)`,
+      [name, email.toLowerCase(), phone || null, hashedPassword, address || null]
+    );
+
+    const newUser = await db.getAsync(
+      'SELECT id, name, email, phone, role, address, created_at FROM users WHERE id = ?',
+      [result.lastID]
+    );
+
+    const token = generateToken(newUser);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Account registered successfully.',
+      data: {
+        user: newUser,
+        token
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to register user.',
+      error: error.message
+    });
+  }
+};
+
+// Login (Customer or Admin)
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide both email and password.'
+      });
+    }
+
+    const user = await db.getAsync(
+      'SELECT * FROM users WHERE email = ?',
+      [email.toLowerCase()]
+    );
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials.'
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials.'
+      });
+    }
+
+    const token = generateToken(user);
+    delete user.password;
+
+    return res.json({
+      success: true,
+      message: 'Logged in successfully.',
+      data: {
+        user,
+        token
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Login failed.',
+      error: error.message
+    });
+  }
+};
+
+// Get current profile
+exports.getProfile = async (req, res) => {
+  return res.json({
+    success: true,
+    data: req.user
+  });
+};
+
+// Update profile
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name, phone, address } = req.body;
+    const userId = req.user.id;
+
+    await db.runAsync(
+      `UPDATE users 
+       SET name = COALESCE(?, name),
+           phone = COALESCE(?, phone),
+           address = COALESCE(?, address),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [name, phone, address, userId]
+    );
+
+    const updatedUser = await db.getAsync(
+      'SELECT id, name, email, phone, role, address, created_at, updated_at FROM users WHERE id = ?',
+      [userId]
+    );
+
+    return res.json({
+      success: true,
+      message: 'Profile updated successfully.',
+      data: updatedUser
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Profile update failed.',
+      error: error.message
+    });
+  }
+};

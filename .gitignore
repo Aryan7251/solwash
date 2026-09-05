@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Logs
+*.log
+logs/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Databases and runtime data
+backend/src/data/*.db
+backend/src/data/*.db-journal
+
+# OS files
+.DS_Store
+Thumbs.db

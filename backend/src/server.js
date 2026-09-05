@@ -1,0 +1,78 @@
+const express = require('express');
+const cors = require('cors');
+const morgan = require('morgan');
+const env = require('./config/env');
+const { initDatabase } = require('./database/db');
+
+// Import route handlers
+const authRoutes = require('./routes/authRoutes');
+const serviceRoutes = require('./routes/serviceRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+
+const app = express();
+
+// Middlewares
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+if (env.NODE_ENV !== 'test') {
+  app.use(morgan('dev'));
+}
+
+// Health Check API
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'SolWash Laundry Backend API is healthy and operational!',
+    timestamp: new Date().toISOString(),
+    environment: env.NODE_ENV
+  });
+});
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/services', serviceRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/payments', paymentRoutes);
+
+// 404 Route Handler
+app.use((req, res, next) => {
+  res.status(404).json({
+    success: false,
+    message: `Cannot ${req.method} ${req.originalUrl} - Route not found.`
+  });
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled Server Error:', err);
+  res.status(500).json({
+    success: false,
+    message: 'Internal server error occurred.',
+    error: env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
+// Start Server after Database initialization
+const PORT = env.PORT;
+
+const startServer = async () => {
+  await initDatabase();
+  const server = app.listen(PORT, () => {
+    console.log(`=============================================`);
+    console.log(`🚀 SolWash Backend Server running on port ${PORT}`);
+    console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+    console.log(`🩺 Health check: http://localhost:${PORT}/api/health`);
+    console.log(`=============================================`);
+  });
+  return server;
+};
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = { app, startServer };

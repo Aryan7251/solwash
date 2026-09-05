@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SolWash - Admin Portal</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- Login Modal / Auth Overlay -->
+  <div id="authModal" class="auth-overlay hidden">
+    <div class="auth-box">
+      <div class="auth-brand">
+        <div class="brand-icon">S</div>
+        <div>
+          <div class="auth-title">Admin Login</div>
+          <div class="auth-desc">SolWash Management Console</div>
+        </div>
+      </div>
+
+      <div id="loginError" class="auth-error"></div>
+
+      <form id="loginForm" class="auth-form">
+        <div class="input-group">
+          <label for="adminEmail">Username / Email</label>
+          <input type="text" id="adminEmail" value="admin" required placeholder="admin">
+        </div>
+        <div class="input-group">
+          <label for="adminPassword">Password</label>
+          <input type="password" id="adminPassword" value="admin" required placeholder="admin">
+        </div>
+        <button type="submit" class="btn-primary" id="loginBtn">Sign In to Dashboard</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Admin Layout -->
+  <div class="app-container">
+    
+    <!-- Flat Blue Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-badge">SOL</div>
+        <div class="brand-text">
+          <h2>SolWash</h2>
+          <span>Admin Panel</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-label">Menu</div>
+
+        <!-- 1. Overview Tab -->
+        <a class="nav-item active" id="nav-overview" data-target="overview-section">
+          <svg viewBox="0 0 24 24">
+            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+          </svg>
+          <span>Overview</span>
+        </a>
+
+        <!-- 2. Orders Tab -->
+        <a class="nav-item" id="nav-orders" data-target="orders-section">
+          <svg viewBox="0 0 24 24">
+            <path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+          </svg>
+          <span>Orders</span>
+        </a>
+
+        <!-- 3. Users Tab -->
+        <a class="nav-item" id="nav-users" data-target="users-section">
+          <svg viewBox="0 0 24 24">
+            <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+          </svg>
+          <span>Users</span>
+        </a>
+
+        <!-- 4. Services Tab -->
+        <a class="nav-item" id="nav-services" data-target="services-section">
+          <svg viewBox="0 0 24 24">
+            <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+          </svg>
+          <span>Services</span>
+        </a>
+      </nav>
+
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <div class="user-profile">
+          <div class="user-avatar" id="adminAvatar">A</div>
+          <div class="user-meta">
+            <div class="name" id="adminNameDisplay">Admin</div>
+            <div class="role">Administrator</div>
+          </div>
+        </div>
+        <button class="btn-logout" id="logoutBtn" title="Logout">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="main-wrapper">
+      
+      <!-- Topbar Header -->
+      <header class="topbar">
+        <div class="page-title">
+          <h1 id="currentSectionTitle">Dashboard Overview</h1>
+        </div>
+        <div class="topbar-actions">
+          <div class="badge-status">
+            <span class="dot"></span>
+            Backend API Connected
+          </div>
+        </div>
+      </header>
+
+      <!-- Content Scrollable Body -->
+      <div class="content-body">
+
+        <!-- SECTION 1: OVERVIEW -->
+        <section id="overview-section" class="view-section active">
+          
+          <!-- Key Metrics Grid -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-info">
+                <h3>Total Customers</h3>
+                <div class="stat-value" id="statCustomers">0</div>
+              </div>
+              <div class="stat-icon-wrapper stat-icon-blue">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-info">
+                <h3>Total Orders</h3>
+                <div class="stat-value" id="statOrders">0</div>
+              </div>
+              <div class="stat-icon-wrapper stat-icon-emerald">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-info">
+                <h3>Active Orders</h3>
+                <div class="stat-value" id="statActive">0</div>
+              </div>
+              <div class="stat-icon-wrapper stat-icon-amber">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                  <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-info">
+                <h3>Revenue</h3>
+                <div class="stat-value" id="statRevenue">₹0</div>
+              </div>
+              <div class="stat-icon-wrapper stat-icon-purple">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                  <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts Grid (Graph & Pie Chart) -->
+          <div class="charts-grid">
+            <div class="panel chart-panel">
+              <div class="panel-header">
+                <div class="panel-title">Weekly Orders & Revenue Graph</div>
+                <div class="chart-legend-badge">7-Day Trend</div>
+              </div>
+              <div class="chart-container">
+                <canvas id="weeklyTrendsChart"></canvas>
+              </div>
+            </div>
+
+            <div class="panel chart-panel">
+              <div class="panel-header">
+                <div class="panel-title">Order Distribution by Category</div>
+                <div class="chart-legend-badge">Service Share</div>
+              </div>
+              <div class="chart-container pie-container">
+                <canvas id="servicesPieChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Bookings Table -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Recent Solar Panel Cleaning Bookings</div>
+            </div>
+            <div class="table-responsive">
+              <table class="flat-table">
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Customer</th>
+                    <th>Service</th>
+                    <th>Service Date</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="recentOrdersTableBody">
+                  <tr>
+                    <td colspan="6" class="empty-state">Loading recent bookings...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- SECTION 2: ORDERS (Completed, Failed, Pending) -->
+        <section id="orders-section" class="view-section">
+          
+          <!-- Order Filter Tabs -->
+          <div class="filter-tabs-container">
+            <div class="filter-tabs">
+              <button class="filter-tab active" data-filter="all">All Bookings (<span id="count-all">0</span>)</button>
+              <button class="filter-tab" data-filter="pending">
+                <span class="tab-dot dot-pending"></span> Pending Visits (<span id="count-pending">0</span>)
+              </button>
+              <button class="filter-tab" data-filter="completed">
+                <span class="tab-dot dot-completed"></span> Completed Cleanings (<span id="count-completed">0</span>)
+              </button>
+              <button class="filter-tab" data-filter="failed">
+                <span class="tab-dot dot-failed"></span> Failed / Cancelled (<span id="count-failed">0</span>)
+              </button>
+            </div>
+          </div>
+
+          <!-- Orders Table Panel -->
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title" id="ordersPanelTitle">All Solar Cleaning Bookings</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Manage wash status, technician visit tracking and payments</div>
+              </div>
+              <div class="panel-actions">
+                <input type="text" id="orderSearchInput" class="search-input" placeholder="Search by Order # or Customer...">
+                <button class="btn-export" id="exportOrdersBtn" title="Export Orders">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                  </svg>
+                  <span>Export CSV</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="flat-table">
+                <thead>
+                  <tr>
+                    <th>Order No</th>
+                    <th>Customer</th>
+                    <th>Service</th>
+                    <th>Pickup Date & Slot</th>
+                    <th>Total Amount</th>
+                    <th>Payment</th>
+                    <th>Order Status</th>
+                    <th style="text-align: right; min-width: 190px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="ordersTableBody">
+                  <tr>
+                    <td colspan="8" class="empty-state">Loading orders...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 3: USERS -->
+        <section id="users-section" class="view-section">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Registered Customer Base</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;" id="userCountSub">Manage customer accounts & data</div>
+              </div>
+              <div class="panel-actions">
+                <input type="text" id="userSearchInput" class="search-input" placeholder="Search by name, email or phone...">
+                <button class="btn-export" id="exportUsersBtn" title="Export to CSV">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                  </svg>
+                  <span>Export CSV</span>
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="flat-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Customer Name</th>
+                    <th>Email Address</th>
+                    <th>Phone</th>
+                    <th>Address</th>
+                    <th>Total Orders</th>
+                    <th>Joined Date</th>
+                    <th style="text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                  <tr>
+                    <td colspan="8" class="empty-state">Loading users...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 4: SERVICES MANAGEMENT -->
+        <section id="services-section" class="view-section">
+          
+          <!-- Key Metrics Grid for Services -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-info">
+                <h3>Total Services</h3>
+                <div class="stat-value" id="statTotalServices">0</div>
+              </div>
+              <div class="stat-icon-wrapper stat-icon-blue">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                  <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-info">
+                <h3>Active in Catalog</h3>
+                <div class="stat-value" id="statActiveServices">0</div>
+              </div>
+              <div class="stat-icon-wrapper stat-icon-emerald">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-info">
+                <h3>Inactive Services</h3>
+                <div class="stat-value" id="statInactiveServices">0</div>
+              </div>
+              <div class="stat-icon-wrapper stat-icon-amber">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-info">
+                <h3>Starting Price</h3>
+                <div class="stat-value" id="statMinPrice">₹0</div>
+              </div>
+              <div class="stat-icon-wrapper stat-icon-purple">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                  <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Category Filter Tabs -->
+          <div class="filter-tabs-container">
+            <div class="filter-tabs" id="serviceCategoryTabs">
+              <button class="filter-tab active" data-cat="all">All Solar Services (<span id="count-service-all">0</span>)</button>
+              <button class="filter-tab" data-cat="residential">Rooftop Solar (<span id="count-service-residential">0</span>)</button>
+              <button class="filter-tab" data-cat="commercial">Commercial / C&I (<span id="count-service-commercial">0</span>)</button>
+              <button class="filter-tab" data-cat="deep_clean">Deep Chemical Clean (<span id="count-service-deepclean">0</span>)</button>
+              <button class="filter-tab" data-cat="robotic">Robotic Clean (<span id="count-service-robotic">0</span>)</button>
+              <button class="filter-tab" data-cat="inspection">Health & Audit (<span id="count-service-inspection">0</span>)</button>
+              <button class="filter-tab" data-cat="amc">AMC Contracts (<span id="count-service-amc">0</span>)</button>
+            </div>
+          </div>
+
+          <!-- Services Table Panel -->
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">SolWash Solar Panel Services & Pricing Catalog</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Manage solar panel washing rates, pricing units (per panel, per kW, per visit, AMC) and service availability</div>
+              </div>
+              <div class="panel-actions">
+                <input type="text" id="serviceSearchInput" class="search-input" placeholder="Search service, price, capacity (e.g. 3kWh, 5kWh)...">
+                <button class="btn-primary-action" id="openAddServiceModalBtn">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                  </svg>
+                  <span>Add Solar Service</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="flat-table">
+                <thead>
+                  <tr>
+                    <th style="width: 50px;">ID</th>
+                    <th>Solar Service & Details</th>
+                    <th>Category</th>
+                    <th>Price & Capacity</th>
+                    <th>Catalog Status</th>
+                    <th>Created</th>
+                    <th style="text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="servicesTableBody">
+                  <tr>
+                    <td colspan="7" class="empty-state">Loading solar services...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Service Add / Edit Modal -->
+  <div id="serviceModal" class="auth-overlay hidden">
+    <div class="modal-box service-modal-box">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title" id="serviceModalTitle">Add Solar Washing Service</h2>
+          <p class="modal-subtitle">Configure solar panel cleaning service, rates, units and care specifications</p>
+        </div>
+        <button class="btn-modal-close" id="closeServiceModalBtn" title="Close modal">&times;</button>
+      </div>
+
+      <div id="serviceModalError" class="auth-error" style="display: none; margin-bottom: 16px;"></div>
+
+      <form id="serviceForm" class="modal-form">
+        <input type="hidden" id="serviceModalId">
+
+        <div class="input-group">
+          <label for="serviceTitle">Service Name *</label>
+          <input type="text" id="serviceTitle" placeholder="e.g. Residential Rooftop Solar Wash" required>
+        </div>
+
+        <div class="form-row">
+          <div class="input-group">
+            <label for="serviceCategory">Service Category *</label>
+            <select id="serviceCategory" class="form-select" required>
+              <option value="residential">Residential Rooftop Solar</option>
+              <option value="commercial">Commercial & Industrial (C&I)</option>
+              <option value="deep_clean">Deep Chemical & Bird Dropping Clean</option>
+              <option value="robotic">Robotic Automated Cleaning</option>
+              <option value="inspection">Thermal Health & Audit</option>
+              <option value="amc">Annual Maintenance Contract (AMC)</option>
+              <option value="general">General Solar Cleaning</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label for="serviceIsActive">Availability Status</label>
+            <select id="serviceIsActive" class="form-select">
+              <option value="1">Active (Available for booking)</option>
+              <option value="0">Inactive (Hidden from customers)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="input-group">
+            <label for="serviceBasePrice">Base Price (₹) *</label>
+            <input type="number" id="serviceBasePrice" placeholder="e.g. 15" min="0" step="0.5" required>
+          </div>
+
+          <div class="input-group">
+            <label>Solar Capacity (Manual Digit & Unit) *</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input type="number" id="serviceCapacityDigit" placeholder="Enter Digit (e.g. 3, 5, 10, 25)" step="any" style="flex: 1.3;" required>
+              <input type="text" id="serviceCapacityUnit" placeholder="Unit (kWh, kW)" value="kWh" list="capacityUnitSuggestions" style="flex: 0.9;" required>
+            </div>
+            <div id="capacityUnitPreview" style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">
+              Display Unit: <strong>3 kWh</strong>
+            </div>
+            <datalist id="capacityUnitSuggestions">
+              <option value="kWh"></option>
+              <option value="kW"></option>
+              <option value="panels"></option>
+              <option value="per kWh"></option>
+              <option value="per panel"></option>
+              <option value="per visit"></option>
+              <option value="per year"></option>
+            </datalist>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="serviceDescription">Service Details & Cleaning Methodology</label>
+          <textarea id="serviceDescription" rows="3" placeholder="e.g. De-ionized pure water wash, soft microfiber rotary scrub, bird droppings and industrial soot removal to boost solar generation efficiency."></textarea>
+        </div>
+
+        <div class="modal-footer-actions">
+          <button type="button" class="btn-cancel" id="cancelServiceModalBtn">Cancel</button>
+          <button type="submit" class="btn-primary-action" id="saveServiceBtn">
+            <span>Save Solar Service</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
