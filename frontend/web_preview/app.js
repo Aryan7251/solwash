@@ -46,16 +46,7 @@ const modalServiceTitle = document.getElementById('modalServiceTitle');
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
-  setupNetworkStatusMonitor();
-  setupSplashOnboarding();
-  setupNavigation();
-  setupServiceToggles();
-  setupBookingFilters();
-  setupEventListeners();
-  setupOtpAuthentication();
-  loadPublicServices();
-
-  // Check if redirected from Google OAuth with token
+  // 1. Process Google OAuth token immediately if present in URL
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.has('token')) {
     authToken = urlParams.get('token');
@@ -65,13 +56,28 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('solwash_customer_token', authToken);
     localStorage.setItem('solwash_customer_user', JSON.stringify(currentCustomer));
     localStorage.setItem('solwash_onboarded', 'true');
-    const splash = document.getElementById('splash-onboarding');
-    if (splash) splash.style.display = 'none';
+    document.documentElement.classList.add('no-splash');
 
     if (window.history && window.history.replaceState) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }
+
+  // 2. Hide splash screen immediately if logged in or onboarded
+  const splashContainer = document.getElementById('splash-onboarding');
+  if (authToken || localStorage.getItem('solwash_customer_token') || localStorage.getItem('solwash_onboarded') === 'true') {
+    if (splashContainer) splashContainer.style.display = 'none';
+    document.documentElement.classList.add('no-splash');
+  }
+
+  setupNetworkStatusMonitor();
+  setupSplashOnboarding();
+  setupNavigation();
+  setupServiceToggles();
+  setupBookingFilters();
+  setupEventListeners();
+  setupOtpAuthentication();
+  loadPublicServices();
 
   if (authToken) {
     updateCustomerUI();
@@ -89,9 +95,10 @@ function setupSplashOnboarding() {
   const splashContainer = document.getElementById('splash-onboarding');
   if (!splashContainer) return;
 
-  // If already completed onboarding previously, hide immediately
-  if (localStorage.getItem('solwash_onboarded') === 'true') {
+  // Never show splash if user is logged in or already onboarded
+  if (authToken || localStorage.getItem('solwash_customer_token') || localStorage.getItem('solwash_onboarded') === 'true') {
     splashContainer.style.display = 'none';
+    document.documentElement.classList.add('no-splash');
     return;
   }
 
@@ -1023,6 +1030,10 @@ function updateCustomerUI() {
   if (currentCustomer) {
     headerUserName.textContent = currentCustomer.name.split(' ')[0] || 'User';
     profileAuthBtn.textContent = 'Logout';
+    localStorage.setItem('solwash_onboarded', 'true');
+    document.documentElement.classList.add('no-splash');
+    const splash = document.getElementById('splash-onboarding');
+    if (splash) splash.style.display = 'none';
   } else {
     headerUserName.textContent = 'User';
     profileAuthBtn.textContent = 'Login';

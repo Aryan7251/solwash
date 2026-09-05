@@ -7,6 +7,22 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script>
+    (function() {
+      try {
+        var p = new URLSearchParams(window.location.search);
+        var t = p.get('token') || localStorage.getItem('solwash_customer_token');
+        if (t || localStorage.getItem('solwash_onboarded') === 'true') {
+          document.documentElement.classList.add('no-splash');
+        }
+      } catch(e) {}
+    })();
+  </script>
+  <style>
+    .no-splash #splash-onboarding {
+      display: none !important;
+    }
+  </style>
 </head>
 <body>
 
