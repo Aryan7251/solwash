@@ -16,7 +16,7 @@ function getInitialApiBase() {
   if (isLocal) {
     return `http://${hostname || 'localhost'}:5000/api`;
   }
-  return 'https://solwash-backend.onrender.com/api';
+  return 'https://solwash-backend-8b5e.onrender.com/api';
 }
 
 let API_BASE = getInitialApiBase();
