@@ -21,6 +21,7 @@ const sendOtpEmail = async (email, otp) => {
     return { sent: false, reason: 'SMTP credentials not configured in .env' };
   }
 
+  try {
     const transportOptions = (env.SMTP.host && env.SMTP.host.includes('gmail')) || env.SMTP.user.endsWith('@gmail.com')
       ? {
           service: 'gmail',
