@@ -12,7 +12,9 @@ module.exports = {
     password: process.env.DEFAULT_ADMIN_PASSWORD || 'Admin@123456',
     phone: process.env.DEFAULT_ADMIN_PHONE || '+919876543210'
   },
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '859731657038-cp7dv93nj8l6k9flueoph7rjntelhu63.apps.googleusercontent.com',
+  GOOGLE_CLIENT_ID: (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID.includes('783558082274'))
+    ? '859731657038-cp7dv93nj8l6k9flueoph7rjntelhu63.apps.googleusercontent.com'
+    : process.env.GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
   RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || 'rzp_test_solwash123456',
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || 'test_secret_solwash123456',
