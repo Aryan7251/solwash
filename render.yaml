@@ -14,7 +14,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: GOOGLE_CLIENT_ID
-        value: 783558082274-bbvo7dm5l82sq187ainir1jf5giiokdk.apps.googleusercontent.com
+        value: 783558082274-4siu1j2g360l4c4r6v328g9nprkun079.apps.googleusercontent.com
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: SMTP_USER
