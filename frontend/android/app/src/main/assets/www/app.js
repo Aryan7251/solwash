@@ -1322,7 +1322,7 @@ function setupOtpAuthentication() {
   const phoneBtn = document.getElementById('phoneDirectLoginBtn');
 
   // Official Google Client ID provided by user
-  const GOOGLE_CLIENT_ID = "783558082274-4siu1j2g360l4c4r6v328g9nprkun079.apps.googleusercontent.com";
+  const GOOGLE_CLIENT_ID = "859731657038-cp7dv93nj8l6k9flueoph7rjntelhu63.apps.googleusercontent.com";
 
   // Listen for popup OAuth messages
   window.addEventListener('message', (event) => {

@@ -328,9 +328,10 @@ exports.googleOAuthRedirect = (req, res) => {
     const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
     const base = `${protocol}://${host}`;
     const callbackUrl = `${base}/api/auth/google/callback`;
-    const returnUrl = req.query.returnUrl || req.headers.referer || 'http://localhost:3001';
+    const isApp = req.query.platform === 'app';
+    const returnUrl = isApp ? 'solwash://auth' : (req.query.returnUrl || req.headers.referer || 'http://localhost:3001');
 
-    const stateObj = { returnUrl, callbackUrl };
+    const stateObj = { returnUrl, callbackUrl, isApp };
     const stateStr = Buffer.from(JSON.stringify(stateObj)).toString('base64');
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
@@ -359,7 +360,7 @@ exports.googleOAuthCallback = async (req, res) => {
       return res.status(400).send('Authorization code missing from Google redirect.');
     }
 
-    let state = { returnUrl: 'http://localhost:3001' };
+    let state = { returnUrl: 'http://localhost:3001', isApp: false };
     try {
       if (stateStr) {
         state = JSON.parse(Buffer.from(stateStr, 'base64').toString('utf8'));
@@ -407,10 +408,47 @@ exports.googleOAuthCallback = async (req, res) => {
     const token = generateToken(user);
     delete user.password;
 
-    // DIRECT REDIRECT INTO APP - NO INTERMEDIATE POPUP SCREEN!
+    // Check if this is an Android APK Deep Link redirect
     let redirectBase = state.returnUrl || 'http://localhost:3001';
+    if (state.isApp || redirectBase.startsWith('solwash://')) {
+      const appRedirectUrl = `solwash://auth?token=${encodeURIComponent(token)}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email)}`;
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>SolWash Login Successful</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f8fafc; text-align: center; padding: 20px; box-sizing: border-box; }
+            .card { background: white; padding: 32px 24px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 360px; width: 100%; box-sizing: border-box; }
+            .icon { font-size: 48px; margin-bottom: 12px; }
+            h2 { color: #0f172a; margin: 0 0 8px; font-size: 20px; font-weight: 700; }
+            p { color: #64748b; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+            .btn { display: block; background: #0284c7; color: white; padding: 14px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 15px; box-shadow: 0 2px 8px rgba(2,132,199,0.3); }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">☀️</div>
+            <h2>Login Successful!</h2>
+            <p>Welcome, ${user.name}!<br>Redirecting you back to the SolWash app...</p>
+            <a href="${appRedirectUrl}" class="btn">Open SolWash App</a>
+          </div>
+          <script>
+            window.location.href = "${appRedirectUrl}";
+            setTimeout(function() {
+              window.location.href = "${appRedirectUrl}";
+            }, 300);
+          </script>
+        </body>
+        </html>
+      `);
+    }
+
+    // Standard Web Redirect
     redirectBase = redirectBase.replace(/\/$/, '');
-    const targetUrl = `${redirectBase}/?token=${encodeURIComponent(token)}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email)}`;
+    const separator = redirectBase.includes('?') ? '&' : '/?';
+    const targetUrl = `${redirectBase}${separator}token=${encodeURIComponent(token)}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email)}`;
 
     return res.redirect(targetUrl);
   } catch (error) {
