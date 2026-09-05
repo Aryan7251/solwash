@@ -41,24 +41,15 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
 
-// Static Frontends (Admin Portal & Customer Mobile Web Preview)
+// Static Frontend (Admin Portal Only - Web Preview is excluded)
 const adminDir = path.resolve(__dirname, '../../admin');
-const previewDir = path.resolve(__dirname, '../../frontend/web_preview');
 
 if (fs.existsSync(adminDir)) {
+  // Direct root access straight to Admin Panel
+  app.get('/', (req, res) => res.redirect('/admin/'));
   app.use('/admin', express.static(adminDir));
   app.get('/admin/*', (req, res) => {
     res.sendFile(path.join(adminDir, 'index.html'));
-  });
-}
-
-if (fs.existsSync(previewDir)) {
-  app.use(express.static(previewDir));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) {
-      return next();
-    }
-    res.sendFile(path.join(previewDir, 'index.html'));
   });
 }
 
