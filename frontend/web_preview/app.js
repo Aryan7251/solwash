@@ -64,6 +64,10 @@ document.addEventListener('DOMContentLoaded', () => {
     currentCustomer = { id: 1, name: decodeURIComponent(uName), email: decodeURIComponent(uEmail), role: 'customer' };
     localStorage.setItem('solwash_customer_token', authToken);
     localStorage.setItem('solwash_customer_user', JSON.stringify(currentCustomer));
+    localStorage.setItem('solwash_onboarded', 'true');
+    const splash = document.getElementById('splash-onboarding');
+    if (splash) splash.style.display = 'none';
+
     if (window.history && window.history.replaceState) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -1409,23 +1413,13 @@ function setupOtpAuthentication() {
     }
   }
 
-  // Attach click to Google Button (Direct OAuth flow works 100% on both Web and Android APK!)
+  // Attach click to Google Button (Direct Full-page redirect without popup!)
   if (googleBtn) {
     googleBtn.addEventListener('click', () => {
-      showToast('Opening Google Sign-In...');
-      const isAndroidApp = window.location.href.includes('androidplatform.net') || navigator.userAgent.includes('Android');
-      const authUrl = `${API_BASE}/auth/google/login?platform=${isAndroidApp ? 'app' : 'web'}`;
-
-      if (isAndroidApp) {
-        // In Android WebView, this triggers shouldOverrideUrlLoading which opens real Chrome browser
-        window.location.href = authUrl;
-      } else {
-        // In desktop/browser, open popup window or navigate
-        const popup = window.open(authUrl, 'solwash_google_auth', 'width=520,height=620,status=no,toolbar=no');
-        if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-          window.location.href = authUrl;
-        }
-      }
+      showToast('Connecting to Google...');
+      const returnUrl = window.location.origin;
+      const authUrl = `${API_BASE}/auth/google/login?returnUrl=${encodeURIComponent(returnUrl)}`;
+      window.location.href = authUrl;
     });
   }
 
