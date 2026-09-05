@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = (window.SOLWASH_API_URL || localStorage.getItem('solwash_api_url') || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5000/api' : 'https://solwash-backend.onrender.com/api'));
 
 // State
 let authToken = localStorage.getItem('solwash_customer_token') || '';

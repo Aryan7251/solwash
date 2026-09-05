@@ -1,0 +1,9 @@
+{
+  "name": "solwash-admin",
+  "version": "1.0.0",
+  "description": "SolWash Admin Panel",
+  "main": "serve.js",
+  "scripts": {
+    "start": "node serve.js"
+  }
+}

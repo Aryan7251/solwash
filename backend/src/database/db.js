@@ -9,7 +9,9 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-const dbFilePath = path.resolve(process.cwd(), env.DB_PATH);
+const dbFilePath = path.isAbsolute(env.DB_PATH)
+  ? env.DB_PATH
+  : path.resolve(dbDir, path.basename(env.DB_PATH));
 const db = new sqlite3.Database(dbFilePath, (err) => {
   if (err) {
     console.error('Error connecting to SQLite database:', err.message);
@@ -155,6 +157,22 @@ const initDatabase = async () => {
         [env.DEFAULT_ADMIN.name, env.DEFAULT_ADMIN.email, env.DEFAULT_ADMIN.phone, hashedPassword]
       );
       console.log(`Default admin created: ${env.DEFAULT_ADMIN.email}`);
+    }
+
+    // Seed default solar services if empty
+    const serviceCount = await db.getAsync('SELECT COUNT(*) as count FROM services');
+    if (serviceCount && serviceCount.count === 0) {
+      await db.runAsync(
+        `INSERT INTO services (title, description, category, base_price, price_unit, is_active)
+         VALUES (?, ?, ?, ?, ?, 1)`,
+        ['Rooftop Solar Wash', 'Complete eco-friendly solar panel cleaning & dust removal for maximum efficiency.', 'residential', 299, '3 kWh']
+      );
+      await db.runAsync(
+        `INSERT INTO services (title, description, category, base_price, price_unit, is_active)
+         VALUES (?, ?, ?, ?, ?, 1)`,
+        ['Commercial Solar Cleaning', 'Deep pressure and demineralized water cleaning for commercial solar plants.', 'commercial', 999, '10 kWh']
+      );
+      console.log('Default solar services seeded.');
     }
 
     // Ready

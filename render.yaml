@@ -1,0 +1,27 @@
+services:
+  # 1. SolWash Backend REST API
+  - type: web
+    name: solwash-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node src/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+
+  # 2. SolWash Admin Panel
+  - type: web
+    name: solwash-admin
+    runtime: node
+    plan: free
+    rootDir: admin
+    buildCommand: ""
+    startCommand: node serve.js
+    envVars:
+      - key: NODE_ENV
+        value: production
