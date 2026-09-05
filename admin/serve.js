@@ -15,11 +15,17 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-  let reqPath = req.url === '/' ? '/index.html' : req.url.split('?')[0];
-  let filePath = path.join(PUBLIC_DIR, reqPath);
+  let pathname = req.url.split('?')[0];
+  if (!pathname || pathname === '/') {
+    pathname = '/index.html';
+  }
+  let filePath = path.join(PUBLIC_DIR, pathname);
 
   fs.stat(filePath, (err, stats) => {
-    if (err || !stats.isFile()) {
+    if (!err && stats.isDirectory()) {
+      filePath = path.join(filePath, 'index.html');
+    }
+    if (err || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       return res.end('404 Not Found');
     }
