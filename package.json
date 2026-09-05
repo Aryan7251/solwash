@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "SolWash Laundry & Solar Care Management Platform",
   "scripts": {
-    "start": "node start.js"
+    "start": "node backend/src/server.js",
+    "build": "npm --prefix backend install",
+    "postinstall": "npm --prefix backend install",
+    "dev": "node start.js"
   }
 }

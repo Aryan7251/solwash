@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: solwash
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        value: 783558082274-bbvo7dm5l82sq187ainir1jf5giiokdk.apps.googleusercontent.com
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false

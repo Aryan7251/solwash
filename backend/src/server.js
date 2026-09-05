@@ -11,6 +11,9 @@ const orderRoutes = require('./routes/orderRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 
+const path = require('path');
+const fs = require('fs');
+
 const app = express();
 
 // Middlewares
@@ -37,6 +40,27 @@ app.use('/api/services', serviceRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
+
+// Static Frontends (Admin Portal & Customer Mobile Web Preview)
+const adminDir = path.resolve(__dirname, '../../admin');
+const previewDir = path.resolve(__dirname, '../../frontend/web_preview');
+
+if (fs.existsSync(adminDir)) {
+  app.use('/admin', express.static(adminDir));
+  app.get('/admin/*', (req, res) => {
+    res.sendFile(path.join(adminDir, 'index.html'));
+  });
+}
+
+if (fs.existsSync(previewDir)) {
+  app.use(express.static(previewDir));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    res.sendFile(path.join(previewDir, 'index.html'));
+  });
+}
 
 // 404 Route Handler
 app.use((req, res, next) => {

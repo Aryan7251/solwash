@@ -10,7 +10,12 @@ function getInitialApiBase() {
   if (saved) return saved.trim().replace(/\/$/, '');
 
   const hostname = window.location.hostname;
-  return `http://${hostname || 'localhost'}:5000/api`;
+  const port = window.location.port;
+
+  if (port === '3001' || port === '3000') {
+    return `http://${hostname || 'localhost'}:5000/api`;
+  }
+  return '/api';
 }
 
 let API_BASE = getInitialApiBase();

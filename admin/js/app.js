@@ -10,13 +10,12 @@ function getInitialApiBase() {
   if (saved) return saved.trim().replace(/\/$/, '');
 
   const hostname = window.location.hostname;
-  const protocol = window.location.protocol;
-  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname === '' || protocol === 'http:';
+  const port = window.location.port;
 
-  if (isLocal) {
+  if (port === '3000' || port === '3001') {
     return `http://${hostname || 'localhost'}:5000/api`;
   }
-  return `http://${hostname || 'localhost'}:5000/api`;
+  return '/api';
 }
 
 let API_BASE = getInitialApiBase();
