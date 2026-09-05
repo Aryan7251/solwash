@@ -33,22 +33,6 @@
         </div>
         <button type="submit" class="btn-primary" id="loginBtn">Sign In to Dashboard</button>
       </form>
-
-      <!-- Backend Connection Settings -->
-      <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid #e2e8f0; font-size: 12px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <span style="color: #64748b; font-weight: 600;">Backend API URL:</span>
-          <button type="button" id="toggleApiInputBtn" style="background: none; border: none; color: #2563eb; cursor: pointer; font-size: 11px; font-weight: 600;">Edit URL</button>
-        </div>
-        <div id="currentApiDisplay" style="color: #334155; font-family: monospace; font-size: 11px; word-break: break-all; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0;"></div>
-        <div id="apiInputWrap" style="display: none; margin-top: 8px;">
-          <input type="text" id="customApiInput" placeholder="https://your-backend.onrender.com/api" style="width: 100%; padding: 8px 10px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-family: monospace;">
-          <div style="display: flex; gap: 8px; margin-top: 6px;">
-            <button type="button" id="saveApiBtn" style="flex: 1; padding: 6px 12px; background: #2563eb; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">Save & Reconnect</button>
-            <button type="button" id="resetApiBtn" style="padding: 6px 12px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 12px;">Reset</button>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -127,9 +111,9 @@
           <h1 id="currentSectionTitle">Dashboard Overview</h1>
         </div>
         <div class="topbar-actions">
-          <div class="badge-status" id="headerApiStatus" style="cursor: pointer;" title="Click to view/change Backend API URL">
-            <span class="dot" id="headerApiDot"></span>
-            <span id="headerApiText">Backend API Connected</span>
+          <div class="badge-status">
+            <span class="dot"></span>
+            Backend API Connected
           </div>
         </div>
       </header>

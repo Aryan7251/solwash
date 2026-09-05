@@ -1,4 +1,10 @@
 function getInitialApiBase() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('api')) {
+    const apiParam = params.get('api').trim().replace(/\/$/, '');
+    localStorage.setItem('solwash_api_url', apiParam);
+    return apiParam;
+  }
   if (window.SOLWASH_API_URL) return window.SOLWASH_API_URL;
   const saved = localStorage.getItem('solwash_api_url');
   if (saved) return saved.trim().replace(/\/$/, '');
@@ -126,70 +132,6 @@ function setupNavigation() {
 
 // Authentication handling
 function setupAuth() {
-  const currentApiDisplay = document.getElementById('currentApiDisplay');
-  const customApiInput = document.getElementById('customApiInput');
-  const apiInputWrap = document.getElementById('apiInputWrap');
-  const toggleApiInputBtn = document.getElementById('toggleApiInputBtn');
-  const saveApiBtn = document.getElementById('saveApiBtn');
-  const resetApiBtn = document.getElementById('resetApiBtn');
-  const headerApiStatus = document.getElementById('headerApiStatus');
-
-  function updateApiUI() {
-    if (currentApiDisplay) currentApiDisplay.textContent = API_BASE;
-    if (customApiInput) customApiInput.value = API_BASE;
-    checkBackendHealth();
-  }
-
-  updateApiUI();
-
-  if (toggleApiInputBtn && apiInputWrap) {
-    toggleApiInputBtn.addEventListener('click', () => {
-      const isHidden = apiInputWrap.style.display === 'none' || !apiInputWrap.style.display;
-      apiInputWrap.style.display = isHidden ? 'block' : 'none';
-      if (isHidden && customApiInput) customApiInput.focus();
-    });
-  }
-
-  if (saveApiBtn && customApiInput) {
-    saveApiBtn.addEventListener('click', () => {
-      let val = customApiInput.value.trim().replace(/\/$/, '');
-      if (!val) return;
-      if (!val.endsWith('/api')) val += '/api';
-      API_BASE = val;
-      localStorage.setItem('solwash_api_url', API_BASE);
-      updateApiUI();
-      if (apiInputWrap) apiInputWrap.style.display = 'none';
-      if (loginError) {
-        loginError.style.display = 'none';
-      }
-      showToast && showToast(`Backend URL updated to: ${API_BASE}`);
-    });
-  }
-
-  if (resetApiBtn) {
-    resetApiBtn.addEventListener('click', () => {
-      localStorage.removeItem('solwash_api_url');
-      API_BASE = getInitialApiBase();
-      updateApiUI();
-      if (apiInputWrap) apiInputWrap.style.display = 'none';
-      if (loginError) loginError.style.display = 'none';
-    });
-  }
-
-  if (headerApiStatus) {
-    headerApiStatus.addEventListener('click', () => {
-      const newUrl = prompt(`Current Backend API URL:\n${API_BASE}\n\nEnter new Backend API URL:`, API_BASE);
-      if (newUrl && newUrl.trim()) {
-        let val = newUrl.trim().replace(/\/$/, '');
-        if (!val.endsWith('/api')) val += '/api';
-        API_BASE = val;
-        localStorage.setItem('solwash_api_url', API_BASE);
-        updateApiUI();
-        if (authToken) fetchOverviewData();
-      }
-    });
-  }
-
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     loginError.style.display = 'none';
@@ -223,17 +165,9 @@ function setupAuth() {
       fetchOverviewData();
     } catch (err) {
       if (err.name === 'TypeError' && err.message.toLowerCase().includes('fetch')) {
-        loginError.innerHTML = `
-          <div style="font-weight: 700; margin-bottom: 4px;">⚠️ Cannot connect to Backend API (Failed to fetch)</div>
-          <div style="font-size: 11px; margin-bottom: 6px; word-break: break-all;">Target: <code>${API_BASE}</code></div>
-          <div style="font-size: 11px; line-height: 1.4; color: #78350f;">
-            1. Agar backend Render par abhi deploy kiya hai, to Free Tier par backend start hone me 1-2 minute lagte hain.<br>
-            2. Agar aapka Render backend URL alag hai, to niche <b>"Edit URL"</b> par click karke apna Render backend link dalein.
-          </div>
-        `;
-        if (apiInputWrap) apiInputWrap.style.display = 'block';
+        loginError.textContent = `Server connection error (Failed to fetch). Make sure backend is running at ${API_BASE}`;
       } else {
-        loginError.textContent = err.message;
+        loginError.textContent = err.message || 'Login failed';
       }
       loginError.style.display = 'block';
     }
@@ -246,22 +180,6 @@ function setupAuth() {
     currentUser = null;
     showAuthModal();
   });
-}
-
-async function checkBackendHealth() {
-  const headerApiDot = document.getElementById('headerApiDot');
-  const headerApiText = document.getElementById('headerApiText');
-  try {
-    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout ? AbortSignal.timeout(4000) : undefined });
-    if (res.ok) {
-      if (headerApiDot) headerApiDot.style.background = '#22c55e';
-      if (headerApiText) headerApiText.textContent = 'Backend Connected';
-      return true;
-    }
-  } catch (e) {}
-  if (headerApiDot) headerApiDot.style.background = '#ef4444';
-  if (headerApiText) headerApiText.textContent = 'Backend Disconnected';
-  return false;
 }
 
 async function verifySession() {
