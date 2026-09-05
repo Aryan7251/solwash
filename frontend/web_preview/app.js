@@ -9,7 +9,8 @@ function getInitialApiBase() {
   const saved = localStorage.getItem('solwash_api_url');
   if (saved) return saved.trim().replace(/\/$/, '');
 
-  return 'https://solwash-backend-8b5e.onrender.com/api';
+  const hostname = window.location.hostname;
+  return `http://${hostname || 'localhost'}:5000/api`;
 }
 
 let API_BASE = getInitialApiBase();

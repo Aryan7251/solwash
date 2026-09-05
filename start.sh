@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PATH="/home/linux/.local/bin:/home/linux/.local/node/bin:$PATH"
 
 echo "Starting SolWash services..."
 
