@@ -1,4 +1,19 @@
-const API_BASE = (window.SOLWASH_API_URL || localStorage.getItem('solwash_api_url') || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5000/api' : 'https://solwash-backend.onrender.com/api'));
+function getInitialApiBase() {
+  if (window.SOLWASH_API_URL) return window.SOLWASH_API_URL;
+  const saved = localStorage.getItem('solwash_api_url');
+  if (saved) return saved.trim().replace(/\/$/, '');
+
+  const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname === '' || protocol === 'http:';
+
+  if (isLocal) {
+    return `http://${hostname || 'localhost'}:5000/api`;
+  }
+  return 'https://solwash-backend.onrender.com/api';
+}
+
+let API_BASE = getInitialApiBase();
 
 // State
 let authToken = localStorage.getItem('solwash_customer_token') || '';
