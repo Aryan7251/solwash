@@ -12,6 +12,7 @@ else
     echo " Starting Backend Server (port 5000)..."
     cd "$ROOT_DIR/backend"
     nohup node src/server.js > "$ROOT_DIR/backend/server.log" 2>&1 &
+    disown
 fi
 
 # 2. Start Admin Panel (Port 3000)
@@ -21,6 +22,7 @@ else
     echo " Starting Admin Panel (port 3000)..."
     cd "$ROOT_DIR/admin"
     nohup node serve.js > "$ROOT_DIR/admin/admin.log" 2>&1 &
+    disown
 fi
 
 # 3. Start Frontend Web Preview (Port 3001)
@@ -30,6 +32,7 @@ else
     echo " Starting Frontend Web Preview (port 3001)..."
     cd "$ROOT_DIR/frontend/web_preview"
     nohup node serve.js > "$ROOT_DIR/frontend/web_preview/web_preview.log" 2>&1 &
+    disown
 fi
 
 echo "========================================="
