@@ -12,7 +12,8 @@
       try {
         var p = new URLSearchParams(window.location.search);
         var t = p.get('token') || localStorage.getItem('solwash_customer_token');
-        if (t || localStorage.getItem('solwash_onboarded') === 'true') {
+        if (t) {
+          // Logged in user: strictly suppress splash screen
           document.documentElement.classList.add('no-splash');
         }
       } catch(e) {}

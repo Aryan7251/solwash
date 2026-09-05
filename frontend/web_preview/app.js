@@ -63,11 +63,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 2. Hide splash screen immediately if logged in or onboarded
+  // 2. Hide splash screen ONLY if logged in
   const splashContainer = document.getElementById('splash-onboarding');
-  if (authToken || localStorage.getItem('solwash_customer_token') || localStorage.getItem('solwash_onboarded') === 'true') {
+  if (authToken || localStorage.getItem('solwash_customer_token')) {
     if (splashContainer) splashContainer.style.display = 'none';
     document.documentElement.classList.add('no-splash');
+  } else {
+    // Unlogged user: show splash screen first
+    if (splashContainer) splashContainer.style.display = 'block';
+    document.documentElement.classList.remove('no-splash');
   }
 
   setupNetworkStatusMonitor();
@@ -84,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showScreen('tab-home');
     verifyCustomer();
   } else {
-    // Show OTP Login Screen first
+    // Show OTP Login Screen behind splash screen
     showScreen('tab-login');
     updateCustomerUI();
   }
@@ -95,12 +99,16 @@ function setupSplashOnboarding() {
   const splashContainer = document.getElementById('splash-onboarding');
   if (!splashContainer) return;
 
-  // Never show splash if user is logged in or already onboarded
-  if (authToken || localStorage.getItem('solwash_customer_token') || localStorage.getItem('solwash_onboarded') === 'true') {
+  // Logged in user: NEVER show splash screen
+  if (authToken || localStorage.getItem('solwash_customer_token')) {
     splashContainer.style.display = 'none';
     document.documentElement.classList.add('no-splash');
     return;
   }
+
+  // Unlogged user: ALWAYS show splash screen first
+  splashContainer.style.display = 'block';
+  document.documentElement.classList.remove('no-splash');
 
   const slides = splashContainer.querySelectorAll('.splash-slide');
   const dots = splashContainer.querySelectorAll('.splash-dot');
