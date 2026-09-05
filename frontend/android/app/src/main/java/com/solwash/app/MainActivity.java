@@ -132,12 +132,20 @@ public class MainActivity extends AppCompatActivity {
                     startActivity(intent);
                     return true;
                 }
+                // Route Google OAuth through external system browser so Google accounts never block WebView
+                if (url.contains("/auth/google/login") || url.contains("accounts.google.com")) {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    startActivity(intent);
+                    return true;
+                }
                 return false;
             }
         });
 
         // Load through secure https scheme via WebViewAssetLoader
         webView.loadUrl("https://appassets.androidplatform.net/assets/www/index.html");
+
+        handleAuthDeepLink(getIntent());
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -149,5 +157,34 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleAuthDeepLink(intent);
+    }
+
+    private void handleAuthDeepLink(Intent intent) {
+        if (intent != null && intent.getData() != null) {
+            Uri data = intent.getData();
+            if ("solwash".equals(data.getScheme()) && "auth".equals(data.getHost())) {
+                String token = data.getQueryParameter("token");
+                String name = data.getQueryParameter("name");
+                String email = data.getQueryParameter("email");
+                if (token != null) {
+                    final String safeToken = token.replace("'", "\\'");
+                    final String safeName = (name != null ? name : "User").replace("'", "\\'");
+                    final String safeEmail = (email != null ? email : "").replace("'", "\\'");
+                    webView.post(() -> {
+                        String js = "if (typeof window.handleDeepLinkAuth === 'function') { " +
+                                "window.handleDeepLinkAuth('" + safeToken + "', '" + safeName + "', '" + safeEmail + "'); " +
+                                "}";
+                        webView.evaluateJavascript(js, null);
+                    });
+                }
+            }
+        }
     }
 }

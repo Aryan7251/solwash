@@ -10,6 +10,8 @@ router.post('/send-otp', authController.sendOtp);
 router.post('/verify-otp', authController.verifyOtp);
 router.post('/direct-login', authController.directLogin);
 router.post('/google', authController.googleLogin);
+router.get('/google/login', authController.googleOAuthRedirect);
+router.get('/google/callback', authController.googleOAuthCallback);
 
 // Protected routes
 router.get('/me', authenticate, authController.getProfile);

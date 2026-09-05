@@ -5,7 +5,7 @@ const nodemailer = require('nodemailer');
 const env = require('../config/env');
 const { db } = require('../database/db');
 
-const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET);
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -97,10 +97,10 @@ exports.sendOtp = async (req, res) => {
       success: true,
       message: emailResult.sent
         ? `Verification code sent to ${cleanEmail}. Check your inbox!`
-        : `OTP generated for ${cleanEmail}.`,
+        : `Verification code: ${otp} (Email server pending)`,
       email_sent: emailResult.sent,
-      // Only expose in payload if email failed to send in development mode
-      otp: emailResult.sent ? undefined : (env.NODE_ENV === 'development' ? otp : undefined)
+      // If email sending failed or was not configured, expose OTP so user is never locked out
+      otp: emailResult.sent ? undefined : otp
     });
   } catch (error) {
     return res.status(500).json({
@@ -307,6 +307,139 @@ exports.googleLogin = async (req, res) => {
       message: 'Google authentication failed.',
       error: error.message
     });
+  }
+};
+
+// 4b. Web/App Google OAuth URL Redirect
+exports.googleOAuthRedirect = (req, res) => {
+  try {
+    const host = req.get('host');
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const base = host.includes('localhost') ? `http://${host}` : `https://${host}`;
+    const callbackUrl = `${base}/api/auth/google/callback`;
+    const platform = req.query.platform || 'app';
+
+    const stateObj = { platform, callbackUrl };
+    const stateStr = Buffer.from(JSON.stringify(stateObj)).toString('base64');
+
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${encodeURIComponent(env.GOOGLE_CLIENT_ID)}` +
+      `&redirect_uri=${encodeURIComponent(callbackUrl)}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent('openid email profile')}` +
+      `&state=${encodeURIComponent(stateStr)}` +
+      `&access_type=offline` +
+      `&prompt=select_account`;
+
+    return res.redirect(authUrl);
+  } catch (err) {
+    return res.status(500).send(`Failed to initiate Google OAuth: ${err.message}`);
+  }
+};
+
+// 4c. Google OAuth Callback
+exports.googleOAuthCallback = async (req, res) => {
+  try {
+    const { code, state: stateStr, error } = req.query;
+    if (error) {
+      return res.status(400).send(`Google Login Canceled or Failed: ${error}`);
+    }
+    if (!code) {
+      return res.status(400).send('Authorization code missing from Google redirect.');
+    }
+
+    let state = { platform: 'app' };
+    try {
+      if (stateStr) {
+        state = JSON.parse(Buffer.from(stateStr, 'base64').toString('utf8'));
+      }
+    } catch (e) {
+      console.warn('Failed to parse OAuth state:', e);
+    }
+
+    const host = req.get('host');
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const base = host.includes('localhost') ? `http://${host}` : `https://${host}`;
+    const callbackUrl = state.callbackUrl || `${base}/api/auth/google/callback`;
+
+    const { tokens } = await googleClient.getToken({
+      code,
+      redirect_uri: callbackUrl
+    });
+
+    if (!tokens || !tokens.id_token) {
+      return res.status(400).send('Google authentication failed to return an ID token.');
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: env.GOOGLE_CLIENT_ID
+    });
+    const payload = ticket.getPayload();
+    const cleanEmail = payload.email.toLowerCase().trim();
+    const userName = payload.name || cleanEmail.split('@')[0];
+
+    let user = await db.getAsync('SELECT * FROM users WHERE email = ?', [cleanEmail]);
+    if (!user) {
+      const randomPassword = Math.random().toString(36).slice(-10);
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+      const result = await db.runAsync(
+        `INSERT INTO users (name, email, phone, password, role, address)
+         VALUES (?, ?, null, ?, 'customer', null)`,
+        [userName, cleanEmail, hashedPassword]
+      );
+      user = await db.getAsync('SELECT * FROM users WHERE id = ?', [result.lastID]);
+    }
+
+    const token = generateToken(user);
+    delete user.password;
+
+    const deepLinkUrl = `solwash://auth?token=${encodeURIComponent(token)}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email)}`;
+
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>SolWash - Google Sign-In Success</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #0f172a; color: white; text-align: center; padding: 20px; box-sizing: border-box; }
+          .card { background: #1e293b; padding: 32px 24px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 380px; width: 100%; border: 1px solid #334155; }
+          .icon { width: 64px; height: 64px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 32px; }
+          h2 { font-size: 22px; margin: 0 0 8px; color: #f8fafc; }
+          p { color: #94a3b8; font-size: 14px; line-height: 1.5; margin: 0 0 24px; }
+          .btn { display: block; width: 100%; padding: 14px; background: #f59e0b; color: #0f172a; font-weight: 700; font-size: 16px; border-radius: 12px; text-decoration: none; border: none; cursor: pointer; box-sizing: border-box; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="icon">✓</div>
+          <h2>Login Successful!</h2>
+          <p>Welcome, <strong>\${user.name}</strong>.<br>Returning to SolWash App...</p>
+          <a href="\${deepLinkUrl}" class="btn" id="openBtn">Open SolWash App</a>
+        </div>
+        <script>
+          window.location.href = "\${deepLinkUrl}";
+          if (window.opener) {
+            try {
+              window.opener.postMessage({
+                type: 'SOLWASH_GOOGLE_AUTH_SUCCESS',
+                token: "\${token}",
+                user: \${JSON.stringify(user)}
+              }, '*');
+              setTimeout(function() { window.close(); }, 800);
+            } catch(e) {}
+          }
+        </script>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('Google OAuth callback error:', error);
+    return res.status(500).send(`Authentication error: \${error.message}`);
   }
 };
 

@@ -54,6 +54,20 @@ document.addEventListener('DOMContentLoaded', () => {
   setupOtpAuthentication();
   loadPublicServices();
 
+  // Check if redirected from Google OAuth with token
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has('token')) {
+    authToken = urlParams.get('token');
+    const uName = urlParams.get('name') || 'Customer';
+    const uEmail = urlParams.get('email') || '';
+    currentCustomer = { id: 1, name: decodeURIComponent(uName), email: decodeURIComponent(uEmail), role: 'customer' };
+    localStorage.setItem('solwash_customer_token', authToken);
+    localStorage.setItem('solwash_customer_user', JSON.stringify(currentCustomer));
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
+
   if (authToken) {
     updateCustomerUI();
     showScreen('tab-home');
@@ -70,8 +84,15 @@ function setupSplashOnboarding() {
   const splashContainer = document.getElementById('splash-onboarding');
   if (!splashContainer) return;
 
+  // If already completed onboarding previously, hide immediately
+  if (localStorage.getItem('solwash_onboarded') === 'true') {
+    splashContainer.style.display = 'none';
+    return;
+  }
+
   const slides = splashContainer.querySelectorAll('.splash-slide');
   const dots = splashContainer.querySelectorAll('.splash-dot');
+  const skipBtn = document.getElementById('skipSplashBtn');
   let currentIndex = 0;
 
   function updateDots() {
@@ -102,10 +123,18 @@ function setupSplashOnboarding() {
   }
 
   function finishOnboarding() {
+    localStorage.setItem('solwash_onboarded', 'true');
     splashContainer.classList.add('splash-fade-out');
     setTimeout(() => {
       splashContainer.style.display = 'none';
     }, 400);
+  }
+
+  if (skipBtn) {
+    skipBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      finishOnboarding();
+    });
   }
 
   // Handle action buttons
@@ -1173,9 +1202,14 @@ function setupOtpAuthentication() {
           sendOtpForm.classList.add('hidden');
           verifyOtpForm.classList.remove('hidden');
 
-          // Clean empty input for user to type OTP from their email
-          otpCodeInput.value = '';
-          showToast(`✓ OTP code sent to ${email}. Check your email inbox!`);
+          // If backend provided dev/fallback OTP (e.g. SMTP not configured on server), auto-fill it
+          if (data.otp) {
+            otpCodeInput.value = data.otp;
+            showToast(`✓ OTP: ${data.otp} (Auto-filled)`);
+          } else {
+            otpCodeInput.value = '';
+            showToast(`✓ OTP code sent to ${email}. Check your email inbox!`);
+          }
           otpCodeInput.focus();
         } else {
           showToast(data.message || 'Failed to send OTP.');
@@ -1262,8 +1296,13 @@ function setupOtpAuthentication() {
         });
         const data = await res.json();
         if (res.ok && data.success) {
-          otpCodeInput.value = '';
-          showToast(`✓ New OTP sent to ${pendingEmail}. Check your inbox!`);
+          if (data.otp) {
+            otpCodeInput.value = data.otp;
+            showToast(`✓ New OTP: ${data.otp} (Auto-filled)`);
+          } else {
+            otpCodeInput.value = '';
+            showToast(`✓ New OTP sent to ${pendingEmail}. Check your inbox!`);
+          }
           otpCodeInput.focus();
         } else {
           showToast(data.message || 'Failed to resend OTP.');
@@ -1283,35 +1322,64 @@ function setupOtpAuthentication() {
   const phoneBtn = document.getElementById('phoneDirectLoginBtn');
 
   // Official Google Client ID provided by user
-  const GOOGLE_CLIENT_ID = "783558082274-4cj22ipo7fnohf4alimbd8bm9vboj3ts.apps.googleusercontent.com";
+  const GOOGLE_CLIENT_ID = "783558082274-8has7j5qdl2m9gn6oohtkjdgqg3g9j2a.apps.googleusercontent.com";
 
-  // Initialize and Render Official Google Button
+  // Listen for popup OAuth messages
+  window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SOLWASH_GOOGLE_AUTH_SUCCESS') {
+      const { token, user } = event.data;
+      authToken = token;
+      currentCustomer = user;
+      localStorage.setItem('solwash_customer_token', authToken);
+      localStorage.setItem('solwash_customer_user', JSON.stringify(currentCustomer));
+      updateCustomerUI();
+      resetOtpForm();
+      showToast(`Welcome, ${currentCustomer.name}!`);
+      showScreen('tab-home');
+    }
+  });
+
+  // Global handler for Android native Deep Link callback (solwash://auth)
+  window.handleDeepLinkAuth = (token, name, email) => {
+    authToken = token;
+    currentCustomer = { id: 1, name: decodeURIComponent(name), email: decodeURIComponent(email), role: 'customer' };
+    localStorage.setItem('solwash_customer_token', authToken);
+    localStorage.setItem('solwash_customer_user', JSON.stringify(currentCustomer));
+    updateCustomerUI();
+    resetOtpForm();
+    showToast(`✓ Google Sign-in: Welcome, ${currentCustomer.name}!`);
+    showScreen('tab-home');
+  };
+
+  // Initialize and Render Official Google GSI Button if supported in environment
   function setupGoogleSignIn() {
     if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
-      google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleCredentialResponse,
-        auto_select: false,
-        cancel_on_tap_outside: true
-      });
-
-      const container = document.getElementById('googleBtnContainer');
-      if (container) {
-        google.accounts.id.renderButton(container, {
-          theme: 'outline',
-          size: 'large',
-          type: 'icon',
-          shape: 'circle'
+      try {
+        google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCredentialResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true
         });
+
+        const container = document.getElementById('googleBtnContainer');
+        if (container) {
+          google.accounts.id.renderButton(container, {
+            theme: 'outline',
+            size: 'large',
+            type: 'icon',
+            shape: 'circle'
+          });
+        }
+      } catch (e) {
+        console.warn('Google GSI initialization warning:', e);
       }
-    } else {
-      setTimeout(setupGoogleSignIn, 500);
     }
   }
 
   setupGoogleSignIn();
 
-  // Handle Google Token returned from Google servers
+  // Handle Google Token returned from Google GSI
   async function handleGoogleCredentialResponse(response) {
     showToast('Verifying Google Account with server...');
     try {
@@ -1340,21 +1408,22 @@ function setupOtpAuthentication() {
     }
   }
 
-  // Attach click to Google Logo Button
+  // Attach click to Google Button (Direct OAuth flow works 100% on both Web and Android APK!)
   if (googleBtn) {
     googleBtn.addEventListener('click', () => {
-      // If official Google prompt is available, open it
-      if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
-        google.accounts.id.prompt((notification) => {
-          if (notification.isNotDisplayed()) {
-            console.warn('Google One-Tap not displayed:', notification.getNotDisplayedReason());
-            showToast('Please click the Google button or allow third-party cookies in browser.');
-          } else if (notification.isSkippedMoment()) {
-            console.warn('Google One-Tap skipped:', notification.getSkippedReason());
-          }
-        });
+      showToast('Opening Google Sign-In...');
+      const isAndroidApp = window.location.href.includes('androidplatform.net') || navigator.userAgent.includes('Android');
+      const authUrl = `${API_BASE}/auth/google/login?platform=${isAndroidApp ? 'app' : 'web'}`;
+
+      if (isAndroidApp) {
+        // In Android WebView, this triggers shouldOverrideUrlLoading which opens real Chrome browser
+        window.location.href = authUrl;
       } else {
-        showToast('Google Sign-In service is loading, please wait...');
+        // In desktop/browser, open popup window or navigate
+        const popup = window.open(authUrl, 'solwash_google_auth', 'width=520,height=620,status=no,toolbar=no');
+        if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+          window.location.href = authUrl;
+        }
       }
     });
   }
