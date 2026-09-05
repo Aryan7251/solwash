@@ -81,13 +81,15 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server after Database initialization
-const PORT = env.PORT;
+const PORT = process.env.PORT || env.PORT || 5000;
 
 const startServer = async () => {
   await initDatabase();
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`=============================================`);
-    console.log(`🚀 SolWash Backend Server running on port ${PORT}`);
+    console.log(`🚀 SolWash Server running on port ${PORT}`);
+    console.log(`🔗 Web Preview:  http://localhost:${PORT}/`);
+    console.log(`🔗 Admin Portal: http://localhost:${PORT}/admin`);
     console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
     console.log(`🩺 Health check: http://localhost:${PORT}/api/health`);
     console.log(`=============================================`);
