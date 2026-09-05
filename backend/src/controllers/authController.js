@@ -21,19 +21,29 @@ const sendOtpEmail = async (email, otp) => {
     return { sent: false, reason: 'SMTP credentials not configured in .env' };
   }
 
-  try {
-    const transporter = nodemailer.createTransport({
-      host: env.SMTP.host,
-      port: env.SMTP.port,
-      secure: env.SMTP.secure,
-      auth: {
-        user: env.SMTP.user,
-        pass: env.SMTP.pass
-      }
-    });
+    const transportOptions = (env.SMTP.host && env.SMTP.host.includes('gmail')) || env.SMTP.user.endsWith('@gmail.com')
+      ? {
+          service: 'gmail',
+          auth: {
+            user: env.SMTP.user,
+            pass: env.SMTP.pass
+          }
+        }
+      : {
+          host: env.SMTP.host,
+          port: env.SMTP.port,
+          secure: env.SMTP.secure,
+          auth: {
+            user: env.SMTP.user,
+            pass: env.SMTP.pass
+          }
+        };
 
+    const transporter = nodemailer.createTransport(transportOptions);
+
+    const senderEmail = env.SMTP.from || `"SolWash Solar Care" <${env.SMTP.user}>`;
     const mailOptions = {
-      from: env.SMTP.from,
+      from: senderEmail,
       to: email,
       subject: `Your SolWash Login Verification Code: ${otp}`,
       html: `
